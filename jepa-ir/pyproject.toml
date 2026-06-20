@@ -1,0 +1,33 @@
+[project]
+name = "jepa-ir"
+version = "0.1.0"
+description = "Self-supervised GNN encoder for program representations (JEPA on lossless LLVM-IR graphs)"
+requires-python = ">=3.10"
+dependencies = [
+    "llvmlite>=0.42",   # pure-Python LLVM IR parser (no native LLVM build needed)
+    "torch>=2.2",
+    "torch-geometric>=2.5",
+    "numpy>=1.24",
+    "pyyaml>=6.0",
+    "tqdm>=4.66",
+    "matplotlib>=3.7",   # headless PCA plots (Agg backend)
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+jepa-build-ir = "jepa_ir.scripts_entry:build_ir_main"
+jepa-build-graphs = "jepa_ir.scripts_entry:build_graphs_main"
+jepa-train = "jepa_ir.scripts_entry:train_main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

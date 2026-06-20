@@ -1,0 +1,4 @@
+[console_scripts]
+jepa-build-graphs = jepa_ir.scripts_entry:build_graphs_main
+jepa-build-ir = jepa_ir.scripts_entry:build_ir_main
+jepa-train = jepa_ir.scripts_entry:train_main
