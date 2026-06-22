@@ -1,0 +1,295 @@
+% =====================================================================
+%  JEPA-IR — Slides de présentation (Beamer)
+%  Compile avec :  pdflatex slides.tex  (2x pour la table des matières)
+% =====================================================================
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% --- Thème : NATIF Beamer (compile partout, y compris Overleaf sans paquet sup.)
+%     Si tu as 'metropolis' installé, tu peux remplacer les 2 lignes ci-dessous
+%     par : \usetheme{metropolis}
+\usetheme{default}
+\usecolortheme{whale}
+\useinnertheme{circles}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+\usepackage{xcolor}
+
+% --- palette ---
+\definecolor{jblue}{HTML}{1f6feb}
+\definecolor{jgreen}{HTML}{2ca02c}
+\definecolor{jred}{HTML}{d62728}
+\definecolor{jorange}{HTML}{d29922}
+\definecolor{jgrey}{HTML}{8b949e}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{frametitle}{bg=jblue,fg=white}
+\setbeamercolor{title}{fg=jblue}
+\setbeamercolor{structure}{fg=jblue}
+\setbeamertemplate{blocks}[rounded][shadow=true]
+
+\newcommand{\hl}[1]{\textcolor{jblue}{\textbf{#1}}}
+\newcommand{\good}[1]{\textcolor{jgreen}{\textbf{#1}}}
+\newcommand{\bad}[1]{\textcolor{jred}{\textbf{#1}}}
+
+\title{JEPA-IR}
+\subtitle{Encodeur auto-supervisé de programmes \\ \& prédiction latente de l'optimisation compilateur}
+\author{Hack The World(s) — équipe \texttt{jepacode}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{Plan}
+  \tableofcontents
+\end{frame}
+
+% =====================================================================
+\section{Le problème}
+% =====================================================================
+\begin{frame}{Optimiser du code : un problème coûteux}
+  \begin{block}{Constat}
+    Pour savoir si une optimisation accélère un programme, il faut aujourd'hui
+    le \bad{compiler ET l'exécuter} — répété sur des milliers de variantes
+    (\emph{phase-ordering}). Prohibitif à grande échelle.
+  \end{block}
+  \pause
+  \begin{alertblock}{Idée}
+    Et si on \hl{raisonnait sur une représentation numérique du code},
+    \hl{sans l'exécuter} ?
+  \end{alertblock}
+  \pause
+  \begin{itemize}
+    \item Transformer un programme en \textbf{vecteur} qui capture sa sémantique.
+    \item Prédire l'effet de l'optimisation \textbf{dans l'espace latent}.
+  \end{itemize}
+\end{frame}
+
+% =====================================================================
+\section{Le pipeline}
+% =====================================================================
+\begin{frame}{Vue d'ensemble du pipeline}
+  \centering
+  \begin{tikzpicture}[
+      node distance=8mm and 10mm,
+      box/.style={draw, rounded corners, align=center, minimum height=11mm,
+                  font=\small, fill=gray!8},
+      arr/.style={-{Stealth[length=3mm]}, thick, jblue}]
+    \node[box] (code) {code\\C/C++};
+    \node[box, right=of code] (ir) {LLVM IR};
+    \node[box, right=of ir, fill=jblue!12] (graph) {graphe\\3-relations};
+    \node[box, right=of graph, fill=jgreen!15] (enc) {encodeur\\GNN (JEPA)};
+    \node[box, right=of enc] (emb) {embedding};
+    \draw[arr] (code)--(ir) node[midway,above,font=\tiny]{clang};
+    \draw[arr] (ir)--(graph);
+    \draw[arr] (graph)--(enc);
+    \draw[arr] (enc)--(emb);
+    \node[box, below=14mm of enc, fill=jorange!15] (pred) {predictor\\latent};
+    \draw[arr] (emb.south) |- (pred.east);
+    \node[font=\scriptsize, jgrey, below=1mm of pred] {emb(O$_k$) $\to$ emb(O$_{k+1}$)};
+  \end{tikzpicture}
+  \vspace{4mm}
+  \begin{itemize}\footnotesize
+    \item \hl{Étape clang} : locale (Dalia n'a pas de clang).
+    \item \hl{Encodeur} : entraîné \emph{de zéro}, auto-supervisé, sur GPU B200.
+  \end{itemize}
+\end{frame}
+
+% =====================================================================
+\section{La représentation : graphe 3-relations}
+% =====================================================================
+\begin{frame}{Un graphe d'IR \emph{sans perte} : 3 relations}
+  Chaque \textbf{nœud} = une instruction LLVM. Trois types d'\textbf{arêtes},
+  conservés simultanément :
+  \vspace{2mm}
+  \begin{itemize}
+    \item \textcolor{jred}{\textbf{contrôle}} — flot de contrôle (branches du CFG)
+    \item \textcolor{jblue}{\textbf{données}} — flot de données (def$\to$use SSA)
+    \item \textcolor{jgreen}{\textbf{mémoire}} — ordre des effets de bord (load/store)
+  \end{itemize}
+  \vspace{3mm}
+  \begin{block}{Ce qui le distingue}
+    Ni un AST, ni un simple CFG, ni ProGraML (control+data+call) : on garde
+    \hl{l'ordre des effets mémoire} — aucune des trois relations n'est jetée.
+  \end{block}
+\end{frame}
+
+% =====================================================================
+\section{L'encodeur JEPA}
+% =====================================================================
+\begin{frame}{JEPA : apprendre une représentation, sans labels}
+  \begin{columns}[T]
+    \begin{column}{0.54\textwidth}
+      \textbf{Principe (sans décodeur) :}
+      \begin{enumerate}\small
+        \item masquer une partie du graphe (nœuds + arêtes)
+        \item encoder le graphe \textbf{masqué} $\to z_A$
+        \item encoder le graphe \textbf{complet} $\to z_B$
+        \item rapprocher $z_A$ et $z_B$ \hl{dans l'espace latent}
+      \end{enumerate}
+      \vspace{2mm}
+      \footnotesize La cible est un \textbf{vecteur}, jamais le graphe.
+      On ne reconstruit rien.
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{block}{Anti-collapse (obligatoire)}
+        \footnotesize
+        Sans contrainte, l'encodeur peut tricher : sortir un vecteur constant.
+        \\ \hl{VICReg} (variance + covariance) l'interdit.
+      \end{block}
+      \begin{exampleblock}{Loss}
+        \scriptsize
+        $\mathcal{L} = \underbrace{\mathrm{MSE}(z_A,z_B)}_{\text{invariance}}
+          + \underbrace{\mathrm{var}}_{\text{anti-collapse}}
+          + \underbrace{\mathrm{cov}}_{\text{décorrélation}}$
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{L'encodeur ne s'effondre pas (preuve par ablation)}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \textbf{Avec VICReg :}
+      \begin{itemize}\small
+        \item std des embeddings $\approx \good{1.3}$ (stable)
+        \item rang effectif $\approx 30/128$
+        \item nuage PCA étalé, pas de point/ligne
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \textbf{Ablation — sans VICReg :}
+      \begin{itemize}\small
+        \item std $\to \bad{0.0003}$ (effondrement total)
+        \item l'encodeur sort un vecteur constant
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{4mm}
+  \begin{center}
+    \begin{tikzpicture}
+      \node {std embeddings :};
+      \node[right=2mm, jgreen, font=\large\bfseries] {1.3};
+      \node[right=24mm, font=\large] {vs};
+      \node[right=38mm, jred, font=\large\bfseries] {0.0003};
+    \end{tikzpicture}
+  \end{center}
+  \begin{center}\small Preuve par contraste : la régularisation est ce qui empêche le collapse.\end{center}
+\end{frame}
+
+% =====================================================================
+\section{Le predictor d'optimisation}
+% =====================================================================
+\begin{frame}{Predictor : prédire l'optimisation dans le latent}
+  Un petit MLP apprend à \hl{avancer d'un cran d'optimisation} :
+  \[ \text{predictor}\big(\text{emb}(O_k)\big) \approx \text{emb}(O_{k+1}) \]
+  \begin{itemize}
+    \item Travaille \textbf{uniquement sur les vecteurs} (pas de génération de code).
+    \item Encodeur \textbf{gelé} ; seul le MLP est entraîné (loss = MSE latente).
+    \item Évalué sur un \hl{test set jamais vu} (pools disjoints, anti-fuite).
+  \end{itemize}
+  \vspace{2mm}
+  \begin{block}{Méthodologie anti-fuite}
+    \footnotesize Corpus découpé en 3 pools disjoints par hash
+    (\texttt{encoder} / \texttt{predictor} / \texttt{heldout}), split
+    train/val/test 70/15/15. L'encodeur n'a jamais vu les programmes du predictor.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Résultat : le predictor capture le saut O0$\to$O1}
+  \centering
+  \small
+  \begin{tabular}{lccccc}
+    \toprule
+    Transition & MSE id. & MSE pred. & gain & cos(in,cible) & cos(pred,cible) \\
+    \midrule
+    \textbf{O0$\to$O1} & 0.912 & 0.393 & \good{+56.9\%} & 0.795 & \good{0.915} \\
+    O1$\to$O2 & 0.094 & 0.085 & +9.1\% & 0.982 & 0.983 \\
+    O2$\to$O3 & 0.018 & 0.025 & \bad{$-$36.3\%} & 0.997 & 0.995 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{4mm}
+  \begin{itemize}\small
+    \item \good{O0$\to$O1} (le vrai saut) : le predictor reconstruit l'embedding
+          optimisé, \hl{cos 0.79 $\to$ 0.92}.
+    \item O1, O2, O3 \emph{quasi confondus} $\Rightarrow$ presque rien à prédire.
+  \end{itemize}
+\end{frame}
+
+% =====================================================================
+\section{Limites \& honnêteté scientifique}
+% =====================================================================
+\begin{frame}{Pourquoi O1 $\approx$ O2 $\approx$ O3 ?}
+  \begin{block}{Mesure (800 programmes, IR brut O2 vs O3)}
+    \centering \hl{IR identique à 100\,\%} — clang ne change \emph{rien} en -O3.
+  \end{block}
+  \begin{itemize}
+    \item \textbf{La vraie limite = le corpus.} AnghaBench = fonctions
+          \emph{isolées et courtes} ($\sim$22 nœuds).
+    \item -O3 cible l'inlining inter-procédural et la vectorisation
+          $\Rightarrow$ \hl{rien à optimiser} sur du code isolé.
+    \item Ce n'est pas un défaut de la représentation : l'IR \emph{lui-même}
+          est identique (0\,\% de perte d'info mesurée).
+  \end{itemize}
+  \vspace{1mm}
+  \footnotesize\textit{Hiérarchie de saturation : O0$\to$O1 gros saut ($\sim$89\,\% des graphes changent),
+  O1$\to$O2 petit ($\sim$16\,\%), O2$\to$O3 nul (0\,\%).}
+\end{frame}
+
+\begin{frame}{Honnêteté scientifique}
+  \begin{itemize}
+    \item L'IR est \textbf{déterministe} : le JEPA apprend une \emph{représentation}
+          (comme BERT sur du texte), pas de l'aléatoire. La vraie prédiction =
+          deviner emb($O_{k+1}$) sans compiler.
+    \item Pas de \textbf{temps d'exécution réel} (corpus non exécutable)
+          $\Rightarrow$ on prédit l'effet \emph{structurel}, pas le speedup.
+    \item \hl{Prochaine étape} : corpus de programmes complets et exécutables
+          (ExeBench) où -O3 fait une vraie différence.
+  \end{itemize}
+\end{frame}
+
+% =====================================================================
+\section{Applications}
+% =====================================================================
+\begin{frame}{Applications}
+  \centering\small
+  \begin{tabular}{ll}
+    \toprule
+    Usage & Apport \\
+    \midrule
+    Phase-ordering & scorer des séquences d'optim sans les exécuter \\
+    Auto-tuning compilateur & choisir l'optim adaptée à \emph{ce} code \\
+    Repr. réutilisable & embedding « universel » de code machine \\
+    Similarité / clones & détecter code copié, malware, vulnérabilités \\
+    Code search & chercher du code par le \emph{sens} \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+% =====================================================================
+\begin{frame}
+  \vfill
+  \centering
+  {\Huge\textcolor{jblue}{\textbf{JEPA-IR}}}\\[4mm]
+  {\large Un encodeur de programmes qui « comprend » le code,\\
+  et prédit l'optimisation sans l'exécuter.}
+  \vfill
+\end{frame}
+
+\begin{frame}{Récapitulatif}
+  \begin{itemize}
+    \item \good{Encodeur JEPA} : représentation 3-relations, aucun collapse
+          (prouvé par ablation).
+    \item \good{Predictor latent} : capture le saut O0$\to$O1 (cos 0.79$\to$0.92).
+    \item \good{Méthodologie} : pools disjoints, train/val/test, zéro fuite.
+    \item \good{Limite mesurée} : clang sature à -O2 sur ce corpus
+          $\Rightarrow$ étendre à des programmes complets.
+  \end{itemize}
+\end{frame}
+
+\end{document}

@@ -6,3 +6,6 @@ checkpoints/
 .pytest_cache/
 *.ll
 .ruff_cache/
+# accidental clang IR dumps named after the -Ox flag
+/-O2
+/-O3
