@@ -269,52 +269,33 @@
     </div>
   </section>
 
-  <!-- 13 — filled from VC red-team -->
+  <!-- 13 — Q&A part 1 -->
   <section class="slide">
-    <h3>What you're probably asking</h3>
+    <h3>What you're probably asking · 1 / 2</h3>
     <h2>The hard questions, answered honestly.</h2>
-    <div id="qa" class="row">
-      <div class="col"><ul>
-        <li><b>"Does this actually make code faster yet?"</b><br>
-          <span class="mut">Not yet — we've proven the model <b class="ink">separates meaning
-          from optimization</b>. Next milestone: first measured speedup on a real benchmark.</span></li>
-        <li><b>"The optimization signal looks tiny."</b><br>
-          <span class="mut">On isolated functions, yes — we measured it. <b class="ink">Whole
-          programs</b> (inlining, vectorization) are where the gains live; that's the corpus we scale to.</span></li>
-      </ul></div>
-      <div class="col"><ul>
-        <li><b>"Why won't LLVM / Google / an LLM lab crush you?"</b><br>
-          <span class="mut">We learn on the <b class="ink">data-flow graph, not text</b>.
-          A JEPA world model + proprietary corpus + the optimizer loop is the moat — not a weekend clone.</span></li>
-        <li><b>"How do you guarantee correctness?"</b><br>
-          <span class="mut">We <b class="ink">propose, the toolchain proves</b>: every
-          AI rewrite is gated by the compiler's equivalence checks. We never ship an unverified transform.</span></li>
-      </ul></div>
-    </div>
+    <ul>
+      <li style="margin:.9em 0"><b>"Does this actually make code faster yet?"</b><br>
+        <span class="mut">Not yet — we've proven the model <b class="ink">separates meaning
+        from optimization</b>. Next milestone: a first measured speedup on a real benchmark.</span></li>
+      <li style="margin:.9em 0"><b>"How do you guarantee correctness?"</b><br>
+        <span class="mut">We <b class="ink">propose, the toolchain proves</b> — every AI
+        rewrite is gated by the compiler's equivalence checks. We never ship an unverified transform.</span></li>
+    </ul>
   </section>
 
-  <!-- 14 — roadmap -->
+  <!-- 14 — Q&A part 2 -->
   <section class="slide">
-    <h3>What your investment de-risks</h3>
-    <h2>Three milestones from <span class="mut">representation</span> to <span class="grad">speedup</span>.</h2>
-    <div class="cards" style="grid-template-columns:repeat(3,1fr)">
-      <div class="card"><div class="n acc">1</div>
-        <p style="font-size:18px"><b>First beat-O3 win.</b></p>
-        <div class="l">One closed loop — encoder → search → codegen → verify → measured
-          wall-clock — that beats <span class="ink">clang -O3</span> on a real hot loop,
-          correctness-checked.</div></div>
-      <div class="card"><div class="n acc2">2</div>
-        <p style="font-size:18px"><b>Headroom proof.</b></p>
-        <div class="l">Re-run the gate on <span class="ink">whole-program</span> corpora
-          (SPEC / cBench) to show the exploitable runtime delta exists where the thesis lives.
-          Days, not months.</div></div>
-      <div class="card"><div class="n warn">3</div>
-        <p style="font-size:18px"><b>Safety rail + moat.</b></p>
-        <div class="l">Propose-then-verify with zero correctness regressions, and the first
-          10k <span class="ink">(graph → measured speedup)</span> records — the data moat
-          incumbents don't have.</div></div>
-    </div>
-    <p class="note">We know exactly what's unproven. This is the plan to prove it.</p>
+    <h3>What you're probably asking · 2 / 2</h3>
+    <h2>Defensibility.</h2>
+    <ul>
+      <li style="margin:.9em 0"><b>"Why won't LLVM / Google / an LLM lab crush you?"</b><br>
+        <span class="mut">We learn on the <b class="ink">data-flow graph, not text</b>. A
+        JEPA world model + the optimizer loop is the method; the durable moat is a
+        <b class="ink">proprietary corpus of (graph → measured speedup) pairs</b> — not a
+        weekend clone.</span></li>
+    </ul>
+    <p class="note">The moat compounds: every optimization we verify becomes a
+      hardware-measured record no incumbent has.</p>
   </section>
 
   <!-- 15 -->
