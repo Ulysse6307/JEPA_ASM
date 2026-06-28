@@ -111,7 +111,11 @@ class FactoredEncoder(nn.Module):
         return h
 
     def forward(self, data):  # noqa: ANN001
-        """Return (z_sem, z_speed), each L2-normalized. Shapes [B, sem], [B, speed]."""
+        """Return (z_sem, z_speed), UN-normalized. Shapes [B, sem], [B, speed].
+
+        VICReg's variance term needs the raw per-dim scale (it hinges std>=1), so we
+        deliberately do NOT L2-normalize here. The eval normalizes for cosine.
+        """
         h = self.trunk(data)
         b = data.batch if hasattr(data, "batch") and data.batch is not None else \
             torch.zeros(h.size(0), dtype=torch.long, device=h.device)

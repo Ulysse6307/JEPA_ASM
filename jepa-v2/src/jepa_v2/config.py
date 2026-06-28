@@ -11,6 +11,13 @@ from dataclasses import dataclass, field
 # that these produce DIFFERENT graphs (gated by the ExeBench probe).
 OPT_LEVELS = ("-O0", "-O1", "-O2", "-O3")
 
+# z_speed groups -O levels into "speed classes" (positives share a class).
+# DEFAULT = 4 classes (identity): treat every -O level as its own class.
+# The Step-1 gate (docs/results_gate_exebench.md) found O2≈O3 graphs identical on
+# ExeBench, so a 4-class objective will see O2/O3 merge on its own; switch to
+# (0, 1, 2, 2) to merge them explicitly, or (0, 1, 1, 1) for opt/no-opt.
+SPEED_GROUPS = (0, 1, 2, 3)
+
 
 @dataclass
 class ModelConfig:
@@ -48,6 +55,18 @@ class LossConfig:
     speed_weight: float = 1.0   # pull same -O across sources together (in z_speed)
     # cross-decorrelation: force z_sem ⟂ z_speed (the disentanglement term)
     cross_decorr_weight: float = 1.0
+
+
+@dataclass
+class DataConfig:
+    # which ExeBench split to build the corpus from
+    split: str = "train_real_compilable"
+    # drop programs whose -O0 graph is smaller than this (degenerate / decl-only).
+    # The gate showed the O1/O2 signal only appears above ~50 nodes.
+    min_nodes: int = 16
+    # a program is kept only if ALL opt levels compile to a valid graph
+    require_all_levels: bool = True
+    vocab_size: int = 8192
 
 
 @dataclass

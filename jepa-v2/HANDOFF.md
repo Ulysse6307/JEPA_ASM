@@ -93,6 +93,16 @@ n'entraîne pas tant que ce gate n'est pas vert.
 
 ## 4. NEXT STEPS (dans l'ordre)
 
+> **MAJ 2026-06-28** — toute la chaîne Steps 1→6 est **codée et fumée** sur le pod
+> (build→train→eval marche end-to-end). État par step ci-dessous. Le **gate Step 1
+> est ROUGE** (O2≈O3, cf. `docs/results_gate_exebench.md`) : décision actée de
+> garder **4 classes z_speed** (configurable via `config.SPEED_GROUPS`) et de
+> laisser O2/O3 fusionner d'eux-mêmes. Fichiers livrés :
+> `scripts/{probe_exebench,build_cache,train,eval_disentangle}.py`,
+> `src/jepa_v2/{exebench,data,loss,vicreg,splits}.py`.
+> Deps env ajoutées (manquaient) : `torch_geometric`, `datasets<3`, `zstandard`,
+> `huggingface_hub`, `matplotlib`, `scikit-learn` — toutes dans `setup_pod.sh`.
+
 > Chaque étape liste : objectif, fichier(s) à créer, et critère de succès (gate).
 
 ### Step 1 — GATE : probe ExeBench (O2 ≠ O3 ?) ⛔ BLOQUANT

@@ -20,14 +20,15 @@ dependencies = [
     "torchdata==0.7.1",
     "packaging",
     "setuptools<81",
-    "networkx>=3.0",
+    "networkx<3.0",          # programl to_networkx breaks on networkx>=3 (KeyError 'edges')
     "torch>=2.2",
     "torch-geometric>=2.5",
     "numpy",
 ]
 
 [project.optional-dependencies]
-data = ["datasets", "zstandard"]   # for pulling ExeBench from HuggingFace
+# datasets<3: ExeBench ships a loader script; datasets>=3 dropped script support.
+data = ["datasets<3", "zstandard", "huggingface_hub"]   # pulling ExeBench from HF
 viz = ["matplotlib", "scikit-learn"]  # eval: t-SNE / cosine matrices
 dev = ["pytest", "ruff"]
 

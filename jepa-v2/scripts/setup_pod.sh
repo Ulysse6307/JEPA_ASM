@@ -27,12 +27,16 @@ pip install -q \
   pandas pyyaml pydantic psutil tqdm requests scipy \
   numpy
 
-# torch / torch-geometric (pod already has torch 2.8 + CUDA; install PyG)
+# torch / torch-geometric (pod already has torch 2.8 + CUDA; install PyG).
+# NOTE: torch_geometric 2.8 is pure-python for our usage (GraphConv, pooling,
+# utils.scatter all have torch fallbacks) — no torch-scatter/sparse build needed.
 python3 -c "import torch" 2>/dev/null || pip install -q torch
-pip install -q torch-geometric || true
+pip install -q torch-geometric
 
-# optional extras for data + eval
-pip install -q datasets zstandard matplotlib scikit-learn || true
+# data + eval deps. datasets MUST be <3: ExeBench ships a loader SCRIPT and >=3.0
+# removed script support. We bypass the script anyway (src/jepa_v2/exebench.py reads
+# the tarballs directly) but keep the pin for parity.
+pip install -q "datasets<3" zstandard huggingface_hub matplotlib scikit-learn
 
 # 5. libtinfo.so.5 — programl's native clang2graph-10 needs the REAL ncurses-5
 #    (a symlink to so.6 is rejected; it needs symbol NCURSES_TINFO_5.0.19991023).
