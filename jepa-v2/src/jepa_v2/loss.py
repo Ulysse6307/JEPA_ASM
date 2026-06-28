@@ -39,7 +39,9 @@ def _group_invariance(z: torch.Tensor, group: torch.Tensor) -> torch.Tensor:
     if num == 0:
         return z.new_zeros(())
     centroids = scatter(z, group, dim=0, dim_size=num, reduce="mean")
-    return ((z - centroids[group]) ** 2).sum(dim=1).mean()
+    # mean over BOTH rows and feature dims (VICReg convention). Summing over dims
+    # would hide a factor of D in the effective sim_coeff and drive collapse.
+    return ((z - centroids[group]) ** 2).mean()
 
 
 def _block_vicreg(z: torch.Tensor, group: torch.Tensor, cfg: VICRegConfig):

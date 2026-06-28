@@ -3,6 +3,28 @@
 > Run 2026-06-28 on the pod (B200). Self-supervised, no labels. Train→eval chain:
 > `scripts/build_cache.py` → `scripts/train.py` → `scripts/eval_disentangle.py`.
 
+## ⭐ Shipped encoder (corrected loss) — `checkpoints/encoder.pt`
+
+8k ExeBench functions, after the `factored_loss` normalization fix (`docs/loss_review.md`):
+
+| | value |
+|---|---|
+| z_sem effective rank (of 96) | **72.4** (90% var in 48 dims) |
+| z_sem cos gap (intra-program − inter) | **0.895** |
+| z_sem silhouette by `-O` (off-target) | **−0.004** ✓ opt-invariant |
+| z_speed effective rank (of 32) | 2.64 (1-D signal) |
+| z_speed cos gap (intra-level − inter) | 0.518 |
+| z_speed silhouette by program (off-target) | **−0.907** ✓ program-invariant |
+
+Disentanglement holds (both off-target silhouettes ≤ 0) and `z_sem` is now high-rank.
+`z_speed` is a single honest axis (O0-vs-optimized), bounded by the gate, not the loss.
+
+> The section below documents the **initial** run (3k functions, pre-fix loss). It
+> is kept for the before/after contrast: there `z_sem` had effective rank ~3-4 and
+> a higher *apparent* `z_speed` gap (0.93) that was a collapse artifact.
+
+---
+
 ## Setup
 
 | | |

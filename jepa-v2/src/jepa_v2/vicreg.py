@@ -31,11 +31,15 @@ def variance_term(z: torch.Tensor, eps: float = 1e-4) -> torch.Tensor:
 
 
 def covariance_term(z: torch.Tensor) -> torch.Tensor:
-    """Mean squared off-diagonal covariance (decorrelates dims within a block)."""
-    n, _d = z.shape
+    """Sum of squared off-diagonal covariance / D (VICReg convention).
+
+    Using .mean() here would divide by D(D-1) instead of D, making the term
+    ~(D-1)x too weak — the only rank-creating force in the loss.
+    """
+    n, d = z.shape
     z = z - z.mean(dim=0, keepdim=True)
     cov = (z.T @ z) / max(n - 1, 1)
-    return off_diagonal(cov).pow(2).mean()
+    return off_diagonal(cov).pow(2).sum() / d
 
 
 def cross_covariance_term(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
@@ -48,4 +52,4 @@ def cross_covariance_term(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     a = a - a.mean(dim=0, keepdim=True)
     b = b - b.mean(dim=0, keepdim=True)
     cross = (a.T @ b) / max(n - 1, 1)  # [Da, Db]
-    return cross.pow(2).mean()
+    return cross.pow(2).sum() / max(a.size(1), b.size(1))
