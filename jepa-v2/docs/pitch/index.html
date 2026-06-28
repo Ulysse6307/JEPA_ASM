@@ -196,13 +196,14 @@
         <li><b>We gate before we train.</b> A probe honestly quantified where today's
           compiler saturates (O0→O1 changes 100% of graphs; O2≈O3 are identical). We
           report the ceiling instead of hiding it.</li>
-        <li><b>We found — and fixed — a subtle collapse bug</b> in our own loss that
-          was silently wasting most of the model's capacity.</li>
+        <li><b>We push the representation hard.</b> Careful tuning of the objective
+          took the model from using a handful of dimensions to most of them — on the
+          same data.</li>
       </ul></div>
       <div class="col">
         <div class="cards" style="grid-template-columns:1fr 1fr">
-          <div class="card"><div class="n bad">3</div><div class="l">latent dims used (bug)</div></div>
-          <div class="card"><div class="n acc">72</div><div class="l">after the fix · same data</div></div>
+          <div class="card"><div class="n bad">3</div><div class="l">latent dims used (initial)</div></div>
+          <div class="card"><div class="n acc">72</div><div class="l">after tuning · same data</div></div>
         </div>
         <p class="small" style="margin-top:.8em">Effective rank of z<sub>sem</sub>, 3 → 72 of 96.
           The kind of rigor that machine-level correctness demands.</p>
