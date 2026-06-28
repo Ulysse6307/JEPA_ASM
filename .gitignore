@@ -1,0 +1,29 @@
+# === SECRETS — never commit (this repo leaked a private key once) ===
+RUNPOD_CONNECT.md
+*_remote
+*_remote.pub
+*.pem
+id_ed25519*
+id_rsa*
+.ssh/
+
+# venvs / caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# data & artifacts (corpora, checkpoints, logs)
+data/
+runs/
+graphs_cache/
+*.pt
+*.ll
+*.bc
+*.log
+
+# OS junk
+.DS_Store
