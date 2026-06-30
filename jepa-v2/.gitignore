@@ -18,3 +18,7 @@ graphs_cache/
 # secrets — the RunPod private key lives OUTSIDE the repo (see ../RUNPOD_CONNECT.md)
 *_remote
 *.pem
+
+# local pod connection
+scripts/pod.env
+pod.env

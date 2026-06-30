@@ -11,8 +11,16 @@
 # SHARED, so we never touch the system Python and never throttle the GPU.
 set -euo pipefail
 
+# New pod? Put its connection in scripts/pod.env (gitignored) and it's picked up here:
+#   export JEPA_POD_HOST='<id>-<hash>@ssh.runpod.io'
+#   export JEPA_POD_KEY="$HOME/.ssh/<your_key>"
+_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[ -f "$_HERE/pod.env" ] && . "$_HERE/pod.env"
+
 KEY="${JEPA_POD_KEY:-$HOME/.ssh/jepa_asml_remote}"
 HOST="${JEPA_POD_HOST:-xmtmw5izfpool0-64411f3c@ssh.runpod.io}"
+# Direct pods (root@ip) need a port; the RunPod proxy doesn't. Set JEPA_POD_PORT for direct.
+PORT_OPT=""; [ -n "${JEPA_POD_PORT:-}" ] && PORT_OPT="-p ${JEPA_POD_PORT}"
 REMOTE_ROOT="/workspace/jepa-v2"
 VENV_ACTIVATE=". $REMOTE_ROOT/.venv/bin/activate"
 
@@ -28,7 +36,7 @@ pod_run() {
     printf '%s\n' "$VENV_ACTIVATE 2>/dev/null || true"
     printf '%s\n' "$1"
     printf 'exit\n'
-  } | ssh -tt -o StrictHostKeyChecking=accept-new -i "$KEY" "$HOST" 2>&1 | _clean
+  } | ssh -tt -o StrictHostKeyChecking=accept-new $PORT_OPT -i "$KEY" "$HOST" 2>&1 | _clean
 }
 
 # Upload a local file to REMOTE_ROOT/<dest> (base64 over stdin; scp doesn't work).
@@ -39,12 +47,12 @@ pod_put() {
     printf 'echo %s | base64 -d > %s/%s\n' "$b64" "$REMOTE_ROOT" "$dest"
     printf 'echo PUT_OK %s\n' "$dest"
     printf 'exit\n'
-  } | ssh -tt -o StrictHostKeyChecking=accept-new -i "$KEY" "$HOST" 2>&1 | _clean | grep -E "PUT_OK|No such|error" || true
+  } | ssh -tt -o StrictHostKeyChecking=accept-new $PORT_OPT -i "$KEY" "$HOST" 2>&1 | _clean | grep -E "PUT_OK|No such|error" || true
 }
 
 case "${1:-}" in
   run) shift; pod_run "$*";;
   put) shift; pod_put "$@";;
-  shell) ssh -tt -o StrictHostKeyChecking=accept-new -i "$KEY" "$HOST";;
+  shell) ssh -tt -o StrictHostKeyChecking=accept-new $PORT_OPT -i "$KEY" "$HOST";;
   *) echo "usage: pod.sh {run <cmd> | put <local> [remote] | shell}"; exit 1;;
 esac

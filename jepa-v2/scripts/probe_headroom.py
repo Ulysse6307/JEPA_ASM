@@ -133,7 +133,11 @@ int main(void){
 """,
 }
 
-OPT_CONFIGS = ["-O0", "-O1", "-O2", "-O3", "-Ofast"]
+# native variants matter on x86 (AVX autovec needs -march=native; the generic target
+# stays on SSE2). They no-op/skip on arm64 (Apple clang rejects -march=native -> None).
+OPT_CONFIGS = ["-O0", "-O1", "-O2", "-O3", "-O3 -march=native",
+               "-Ofast", "-Ofast -march=native"]
+SUMMARY_TARGETS = ["-O3", "-O3 -march=native", "-Ofast", "-Ofast -march=native"]
 BASELINE = "-O2"
 
 
@@ -205,7 +209,7 @@ def main() -> None:
         return out
 
     summary = {}
-    for target in ("-O3", "-Ofast"):
+    for target in SUMMARY_TARGETS:
         s = speedups(target)
         if not s:
             continue
@@ -224,10 +228,8 @@ def main() -> None:
         json.dump(report, f, indent=2)
     print("HEADROOM::SUMMARY " + json.dumps(summary, indent=2))
 
-    o3 = summary.get("vs_O2__-O3", {})
-    ofast = summary.get("vs_O2__-Ofast", {})
-    best = max(o3.get("max_speedup", 1.0), ofast.get("max_speedup", 1.0))
-    geo = max(o3.get("geomean_speedup", 1.0), ofast.get("geomean_speedup", 1.0))
+    best = max((v.get("max_speedup", 1.0) for v in summary.values()), default=1.0)
+    geo = max((v.get("geomean_speedup", 1.0) for v in summary.values()), default=1.0)
     verdict = "HEADROOM_EXISTS" if (geo >= 1.05 or best >= 1.2) else "FLAT"
     print(f"HEADROOM::GATE geomean={geo:.3f}x best={best:.2f}x verdict={verdict}")
     print("HEADROOM::DONE")

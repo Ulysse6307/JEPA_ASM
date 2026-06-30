@@ -12,8 +12,10 @@ ROOT=/workspace/jepa-v2
 mkdir -p "$ROOT"
 cd "$ROOT"
 
-# 0. dedicated venv (the pod is SHARED — never touch system python)
-if [ ! -d .venv ]; then python3 -m venv .venv; fi
+# 0. dedicated venv. --system-site-packages so we INHERIT the pod's preinstalled
+#    CUDA-enabled torch (avoids a multi-GB reinstall) and only layer programl/PyG/etc
+#    on top. We still never pip-install into system python.
+if [ ! -d .venv ]; then python3 -m venv --system-site-packages .venv; fi
 . .venv/bin/activate
 pip install -q --upgrade pip
 
@@ -45,6 +47,12 @@ if ! ldconfig -p | grep -q "libtinfo.so.5"; then
   wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb -O libtinfo5.deb
   apt-get install -y -qq ./libtinfo5.deb || dpkg -i libtinfo5.deb
   cd "$ROOT"
+fi
+
+# native compilers for the headroom probe (scripts/probe_headroom.py needs a real
+# clang/gcc to time -O2/-O3/-Ofast; the pod ships none by default).
+if ! command -v gcc >/dev/null || ! command -v clang >/dev/null; then
+  apt-get update -qq && apt-get install -y -qq gcc clang || true
 fi
 
 # 4 + 6 + 7 are CODE-level (dgl stub, networkx pin already above, no to_pyg):
