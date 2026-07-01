@@ -6,47 +6,63 @@
 *{box-sizing:border-box}
 body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#1a1a1a;line-height:1.55;margin:0}
 article{max-width:820px;margin:0 auto;padding:8px}
-h1{font-size:24px;line-height:1.2;margin:.2em 0 .4em;border-bottom:2px solid #222;padding-bottom:6px}
-h2{font-size:18px;margin:1.3em 0 .5em;border-bottom:1px solid #ddd;padding-bottom:3px;page-break-after:avoid}
-h3{font-size:15px;margin:1em 0 .4em;page-break-after:avoid}
-p,li{font-size:12.5px} em{color:#555}
-table{border-collapse:collapse;width:100%;margin:.6em 0;font-size:11.5px;page-break-inside:avoid}
+h1{font-size:23px;line-height:1.2;margin:.2em 0 .4em;border-bottom:2px solid #222;padding-bottom:6px}
+h2{font-size:17px;margin:1.25em 0 .5em;border-bottom:1px solid #ddd;padding-bottom:3px;page-break-after:avoid}
+h3{font-size:14px;margin:1em 0 .4em;page-break-after:avoid}
+p,li{font-size:12.3px} em{color:#555}
+blockquote{background:#f7f7f9;border-left:3px solid #888;margin:.8em 0;padding:6px 12px;font-size:11.8px;color:#333}
+table{border-collapse:collapse;width:100%;margin:.6em 0;font-size:11.3px;page-break-inside:avoid}
 th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}
 th{background:#f3f3f3}
-img{max-width:92%;display:block;margin:14px auto;page-break-inside:avoid;border:1px solid #eee}
+img{max-width:90%;display:block;margin:14px auto;page-break-inside:avoid;border:1px solid #eee}
 code{background:#f4f4f4;padding:1px 4px;border-radius:3px;font-size:11px}
 mjx-container{overflow-x:auto;overflow-y:hidden}
-</style></head><body><article><h1>Un encodeur auto-supervisé factorisé pour graphes de programmes (IR)</h1>
-<p><em>Note technique — 2026-07-01. Destinée à un chercheur, pour discussion et critique.</em>
+</style></head><body><article><h1>Un encodeur factorisé auto-supervisé (VICReg conditionnel) pour graphes d'IR LLVM</h1>
+<p><em>Note technique — v2, 2026-07-01. Destinée à un chercheur, pour discussion et critique.</em>
 <em>Périmètre : l'</em><em>encodeur</em><em> uniquement (pas de décodeur, pas d'optimiseur, pas de produit).</em></p>
+<blockquote>
+<p><strong>Positionnement honnête (lire d'abord).</strong> Le projet interne s'appelle « JEPA-ASM » —
+<strong>c'est un abus de langage</strong>. La méthode ici <strong>n'est pas du JEPA</strong> : il n'y a ni
+prédicteur latent, ni masquage, ni encodeur-cible EMA. C'est un objectif de la famille
+<strong>VICReg / Barlow-Twins / Siamese</strong> (invariance + variance + covariance), appliqué de
+façon <strong>conditionnelle à deux groupages supervisés</strong> (identité de programme, niveau
+<code>-O</code>). Les inputs sont de l'<strong>IR LLVM</strong> (pas de l'assembleur brut). Cette note est une
+<strong>note d'application + de diagnostic</strong>, pas une contribution méthodologique nouvelle. Les
+résultats intrinsèques ci-dessous ne sont <strong>pas encore étalonnés contre des baselines</strong>
+(voir §7) — le pod d'entraînement étant indisponible au moment de la rédaction.</p>
+</blockquote>
 <h2>Résumé</h2>
-<p>On apprend, <strong>sans aucun label</strong>, un encodeur de programmes $f_\theta$ sur des graphes
-<strong>ProgramML</strong> (représentation GNN-sur-IR LLVM). L'embedding de sortie est <strong>factorisé</strong>
-en deux sous-espaces, $z = [z_{sem} \,\|\, z_{speed}]$, entraînés pour que :
-- $z_{sem}$ soit <strong>invariant au niveau d'optimisation</strong> <code>-O</code> (« ce que fait le code »),
-- $z_{speed}$ soit <strong>invariant au programme</strong> (« le profil d'optimisation »).</p>
-<p>Sur un test held-out, la factorisation tient : cosinus intra/inter nets et silhouettes
-hors-cible $\le 0$ (Fig. 3). Deux résultats méritent discussion : (i) le signal
-d'optimisation apprenable sur des fonctions isolées est <strong>~1 bit</strong> (Fig. 2), et (ii) un
-<strong>bug de normalisation VICReg</strong> effondrait la représentation à ~3 dimensions ; corrigé, le
-rang effectif de $z_{sem}$ passe à <strong>~72/96</strong> à données constantes (Fig. 1). On liste en
-fin de note les questions ouvertes.</p>
+<p>On apprend, <strong>sans labels manuels</strong> (mais avec deux groupages supervisés qui définissent
+les positifs), un encodeur de programmes $f_\theta$ sur des graphes <strong>ProGraML</strong> (Cummins
+et al., arXiv 2003.10536 ; paquet pip <code>programl</code>), représentation GNN-sur-IR-LLVM.
+L'embedding de sortie est <strong>factorisé</strong> en deux sous-espaces, $z = [z_{sem} \,\|\, z_{speed}]$,
+entraînés pour que :
+- $z_{sem}$ soit <strong>invariant au niveau d'optimisation</strong> <code>-O</code> (sous-espace « invariant à -O »),
+- $z_{speed}$ soit <strong>invariant au programme</strong> (sous-espace « invariant au programme »).</p>
+<p><em>(Les étiquettes « sem » / « speed » sont des raccourcis aspirationnels — voir §6.)</em></p>
+<p>Deux résultats <strong>honnêtes</strong> méritent discussion : (i) un <strong>gate</strong> pré-entraînement montre
+que le signal d'optimisation apprenable sur des fonctions isolées est <strong>~1 bit</strong> (O2≈O3
+pour 98.4 % des fonctions, Fig. 2) ; (ii) un <strong>bug de normalisation VICReg</strong> effondrait la
+représentation à ~3 dimensions ; corrigé, le rang effectif de $z_{sem}$ passe à <strong>~72/96</strong> à
+données constantes (Fig. 1). Ces résultats sont un run unique ($n{=}1$) et <strong>sans baseline</strong>
+— à considérer comme des observations à consolider, pas des mesures établies.</p>
 <hr />
 <h2>1. Formalisation</h2>
 <p><strong>Graphe programme.</strong> Un programme compilé produit un graphe orienté typé
 $G = (V, E, \phi)$ avec nœuds $V$, arêtes typées
 $E \subseteq V \times V \times R$, $R = \{\text{control}, \text{data}, \text{call}\}$
-(les flux ProgramML), et étiquette de nœud $\phi: V \to \Sigma$ (opcode/texte). La
-feature de nœud est l'identifiant de vocabulaire $\mathrm{id}(\phi(v)) \in \{0,\dots,K\}$
+(les flux ProGraML), et étiquette de nœud $\phi: V \to \Sigma$ (opcode/texte). La feature
+de nœud est l'identifiant de vocabulaire $\mathrm{id}(\phi(v)) \in \{0,\dots,K\}$
 (0 = <code>&lt;unk&gt;</code>). On note $E_r = \{(u,v) : (u,v,r)\in E\}$.</p>
 <p><strong>Vues.</strong> Chaque programme $P$ est compilé aux niveaux
-$\ell \in \mathcal{O} = \{\texttt{-O0},\texttt{-O1},\texttt{-O2},\texttt{-O3}\}$, donnant
-4 graphes $G_P^\ell$. Le niveau <code>-O</code> ne sert <strong>qu'à grouper</strong> les vues (positifs), jamais
-de cible de classification.</p>
+$\ell \in \mathcal{O} = \{\texttt{-O0},\texttt{-O1},\texttt{-O2},\texttt{-O3}\}$ (clang-10
+embarqué par ProGraML), donnant 4 graphes $G_P^\ell$. Le niveau <code>-O</code> ne sert <strong>qu'à
+grouper</strong> les vues (positifs) — c'est une <strong>supervision faible</strong>, pas une cible de
+classification.</p>
 <p><strong>Encodeur.</strong> $f_\theta : \mathcal{G} \to \mathbb{R}^{d}$, $d = d_{sem}+d_{speed}$,
 $f_\theta(G) = [\,z_{sem} \,\|\, z_{speed}\,]$.</p>
 <h2>2. Modèle ($\texttt{FactoredEncoder}$)</h2>
-<p>Tronc GNN à $L$ couches, <strong>une convolution par relation</strong> :
+<p>Tronc GNN à $L$ couches, <strong>une convolution par relation</strong> (schéma R-GCN / ProGraML) :
 $$
 h^{(0)}_v = W_{\text{in}}\,\mathrm{emb}(\mathrm{id}(\phi(v))) + \mathrm{PE}(v),
 \qquad
@@ -57,40 +73,41 @@ concaténant moyenne et max : $p = [\,\mathrm{mean}_v\, h^{(L)}_v \;\|\; \max_v\
 Deux têtes MLP (avec BatchNorm) projettent :
 $z_{sem} = g_{sem}(p) \in \mathbb{R}^{d_{sem}}$, $z_{speed} = g_{speed}(p) \in \mathbb{R}^{d_{speed}}$.
 Config : $H{=}256$, $L{=}6$, $d_{sem}{=}96$, $d_{speed}{=}32$, $K{=}8192$, entraîné <strong>de zéro</strong>.</p>
-<h2>3. Objectif d'apprentissage (perte factorisée)</h2>
+<h2>3. Objectif d'apprentissage (VICReg conditionnel factorisé)</h2>
 <p>Batch de $B$ programmes $\times$ 4 vues, soit $N = 4B$ embeddings, chaque ligne $i$
 étiquetée par son programme $\mathrm{prog}(i)$ et sa classe de vitesse
 $\mathrm{spd}(i) = \pi(\ell_i)$ ($\pi$ = regroupement de niveaux, identité par défaut).</p>
-<p><strong>Invariance de groupe</strong> (généralisation de l'invariance VICReg à des groupes de
-taille $>2$), moyennée sur lignes <strong>et</strong> dimensions :
+<p><strong>Invariance de groupe</strong> (invariance VICReg conditionnée par une classe, moyennée sur
+lignes <strong>et</strong> dimensions) :
 $$
 \mathcal{I}(Z, c) \;=\; \frac{1}{N\,d}\sum_{i=1}^{N} \big\lVert z_i - \mu_{c(i)} \big\rVert_2^2,
 \qquad \mu_k = \frac{1}{|c^{-1}(k)|}\sum_{i:\,c(i)=k} z_i .
 $$</p>
-<p><strong>Termes anti-effondrement VICReg</strong> par bloc ($Z\in\mathbb{R}^{N\times d}$, $\mathrm{Cov}$
-sur le batch) :
+<p><strong>Termes anti-effondrement VICReg</strong> par bloc (Bardes, Ponce &amp; LeCun, 2022) :
 $$
 \mathcal{V}(Z) = \frac{1}{d}\sum_{j} \max\!\big(0,\,1-\sqrt{\mathrm{Var}(Z_{:,j})+\epsilon}\big),
 \qquad
 \mathcal{C}(Z) = \frac{1}{d}\sum_{j\neq k} \mathrm{Cov}(Z)_{jk}^2 .
 $$</p>
-<p><strong>Décorrélation croisée</strong> (le terme de désentrelacement) :
+<p><strong>Décorrélation croisée</strong> (terme type Barlow-Twins, Zbontar et al. 2021, appliqué entre
+blocs) :
 $$
 \mathcal{X}(z_{sem},z_{speed}) = \frac{1}{\max(d_{sem},d_{speed})}\sum_{j,k}\mathrm{Cov}(z_{sem},z_{speed})_{jk}^2 .
 $$</p>
-<p><strong>Perte totale</strong> (bloc VICReg $= \alpha\mathcal{I}+\beta\mathcal{V}+\gamma\mathcal{C}$) :
+<p><strong>Perte totale</strong> ($= \alpha\mathcal{I}+\beta\mathcal{V}+\gamma\mathcal{C}$ par bloc) :
 $$
 \mathcal{L} = \lambda_{sem}\big[\alpha\,\mathcal{I}(z_{sem},\mathrm{prog}) + \beta\,\mathcal{V}(z_{sem}) + \gamma\,\mathcal{C}(z_{sem})\big]
 + \lambda_{spd}\big[\alpha\,\mathcal{I}(z_{speed},\mathrm{spd}) + \beta\,\mathcal{V}(z_{speed}) + \gamma\,\mathcal{C}(z_{speed})\big]
 + \lambda_{x}\,\mathcal{X}.
 $$
-avec $(\alpha,\beta,\gamma)=(25,25,1)$, $\lambda_{sem}=\lambda_{spd}=\lambda_x=1$.
-<em>Pas de masquage, pas de prédicteur, pas de cible EMA</em> (cf. §6, question de nomenclature).</p>
+avec $(\alpha,\beta,\gamma)=(25,25,1)$ (valeurs canoniques VICReg) et
+$\lambda_{sem}=\lambda_{spd}=\lambda_x=1$. <strong>Aucun composant n'est nouveau</strong> : c'est VICReg
++ un terme croisé Barlow-Twins sur une architecture R-GCN/ProGraML.</p>
 <p><strong>Données &amp; optim.</strong> Corpus <strong>ExeBench</strong> (<code>train_real_compilable</code>), ~8000 fonctions C
-compilées O0–O3 (clang-10 embarqué par ProgramML), vocab des <code>text</code> (top-$K$). Split
-anti-fuite déterministe par hash. Adam, lr $10^{-3}$ (cosine + warmup), 50 époques,
-$B=128$ programmes/batch, un GPU (A100/B200). Éval sur pool held-out disjoint.</p>
-<h2>4. Résultats</h2>
+compilées O0–O3. Vocab des <code>text</code> (top-$K$). Split anti-fuite déterministe par hash. Adam,
+lr $10^{-3}$ (cosine + warmup), 50 époques, $B=128$ programmes/batch, un GPU (A100/B200).
+Éval sur pool held-out disjoint. <strong>Run unique, une seule graine.</strong></p>
+<h2>4. Résultats (observations, non étalonnées)</h2>
 <h3>4.1 Gate : combien de bits d'optimisation sont apprenables ?</h3>
 <p>Avant d'entraîner, on mesure si le graphe <strong>change</strong> entre niveaux <code>-O</code> (sinon $z_{speed}$
 est impossible). Sur 555 fonctions, signature de graphe canonique par (programme, niveau) :</p>
@@ -119,9 +136,10 @@ est impossible). Sur 555 fonctions, signature de graphe canonique par (programme
 <p><img alt="Distinctness par taille" src="figures/fig_gate_size.png" /></p>
 <p><strong>Lecture (Fig. 2).</strong> O0 est toujours distinct ; O1/O2 n'émerge que sur les fonctions
 $\gtrsim 100$ nœuds ; <strong>O2≈O3 partout</strong> (clang sature sur des fonctions isolées : rien à
-inliner, boucles trop courtes pour vectoriser). Le signal d'optimisation apprenable ici
-est donc essentiellement <strong>1 bit</strong> (<code>O0</code> vs optimisé). Conséquence assumée : $z_{speed}$
-est quasi 1-D (rang effectif 2.6, 1 dim pour 90% de variance).</p>
+inliner, boucles trop courtes pour vectoriser). Le signal d'optimisation apprenable ici est
+donc essentiellement <strong>1 bit</strong> (<code>O0</code> vs optimisé) — et <em>ce bit est exactement le flag <code>-O</code>
+que l'on passe soi-même</em> (question ouverte §6). $z_{speed}$ est quasi 1-D (rang effectif
+2.6, 1 dim pour 90 % de variance).</p>
 <h3>4.2 Désentrelacement (encodeur corrigé, test 400 programmes)</h3>
 <table>
 <thead>
@@ -165,51 +183,90 @@ est quasi 1-D (rang effectif 2.6, 1 dim pour 90% de variance).</p>
 </tbody>
 </table>
 <p><img alt="Désentrelacement" src="figures/fig_disentangle_bars.png" /></p>
-<p><strong>Lecture (Fig. 3).</strong> Les cosinus intra $\gg$ inter dans les deux blocs : $z_{sem}$ regroupe
-par programme, $z_{speed}$ par niveau. Surtout, les silhouettes <strong>hors-cible</strong> sont $\le 0$
-(−0.004 pour $z_{sem}$ vs <code>-O</code> ; −0.91 pour $z_{speed}$ vs programme) : chaque bloc <strong>ignore</strong>
-le facteur de l'autre. C'est le désentrelacement recherché. Projections PCA 2-D :
-<code>figures/pca_highrank.png</code> ($z_{sem}$ diffus car haut-rang ; $z_{speed}$ = axe O0-vs-optimisé).</p>
+<p><strong>⚠️ Deux réserves majeures sur ces chiffres.</strong>
+1. <strong>Métrique gonflée par des inputs identiques.</strong> $\cos_{\text{intra}}(z_{sem})=0.995$
+   est en partie <strong>tautologique</strong> : pour ~75–98 % des programmes, les graphes O1/O2/O3 sont
+   <em>identiques</em> (§4.1), donc 3 des 4 vues sont le <strong>même input</strong>. La vraie invariance apprise
+   est O0↔optimisé ; <strong>il faut recalculer la métrique sur les seules paires à graphe
+   distinct</strong> (à faire, §7). Par ailleurs pousser 4 vues d'un même programme à $\cos=0.995$
+   tout en gardant $\cos_{\text{inter}}=0.10$ est de la <strong>discrimination d'instance</strong> (encode
+   <em>quel</em> programme) — pas nécessairement « ce que fait le code ».
+2. <strong>Aucune baseline.</strong> Un encodeur <strong>random-init</strong> sur des inputs identiques donnerait aussi
+   $\cos_{\text{intra}}\approx 1$, et un rang effectif élevé (les features aléatoires sont
+   haut-rang). Ces nombres <strong>ne distinguent pas encore apprentissage vs application
+   déterministe</strong> tant qu'on n'a pas les contrôles random-init + sac-d'opcodes (§7).</p>
+<p>Projections PCA 2-D (illustration) : <code>figures/pca_highrank.png</code> ($z_{sem}$ diffus car
+haut-rang ; $z_{speed}$ = axe O0-vs-optimisé).</p>
 <h3>4.3 Un bug de normalisation VICReg (résultat de méthode)</h3>
 <p>L'invariance codée <strong>sommait</strong> sur les dimensions au lieu de moyenner, cachant un facteur
 $d$ : $\alpha_{\text{eff}} = 25\,d \approx 2400 \gg \beta=25$. L'attraction écrasait alors les
-termes de variance/covariance (seuls créateurs de rang), et la représentation
-<strong>s'effondrait à ~3 dimensions</strong>. Correction $\text{sum}\to\text{mean}$ (et $\mathcal{C}$
-normalisée par $d$ et non $d(d-1)$) — <strong>à données et coefficients identiques</strong> :</p>
+termes de variance/covariance (seuls créateurs de rang), et la représentation <strong>s'effondrait
+à ~3 dimensions</strong>. Correction $\text{sum}\to\text{mean}$ — <strong>à données et coefficients
+identiques</strong> :</p>
 <p><img alt="Capacité avant/après" src="figures/fig_capacity.png" /></p>
-<p>Rang effectif de $z_{sem}$ : <strong>2.97 → 72.4</strong> (Fig. 1), dims pour 90% de variance : <strong>2 → 48</strong>.
+<p>Rang effectif de $z_{sem}$ : <strong>2.97 → 72.4</strong> (Fig. 1), dims pour 90 % de variance : <strong>2 → 48</strong>.
 Ajouter des données (3000→8000 programmes) ne changeait <em>rien</em> au rang — c'était bien
 l'objectif, pas la donnée. <em>(Effet de bord : la variance restaurée force $z_{speed}$ à
-s'étaler ; son écart cosinus tombe de 0.92 à 0.52 — voir §6.)</em></p>
-<h2>5. Reproductibilité</h2>
-<p>Code + checkpoint (<code>checkpoints/encoder.pt</code> + <code>vocab.json</code>), 24 tests unitaires (dont des
-garde-fous de normalisation). Métriques : rang effectif
-$\mathrm{erank}(Z)=\exp\!\big(H(\sigma/\lVert\sigma\rVert_1)\big)$ ($\sigma$ = valeurs
-singulières de $Z$ centré), cosinus intra/inter, silhouette, variance PCA expliquée.
-Détails : <code>docs/results_gate_exebench.md</code>, <code>results_disentangle.md</code>, <code>loss_review.md</code>.</p>
-<h2>6. Limites &amp; questions ouvertes (pour discussion)</h2>
+s'étaler ; son écart cosinus tombe de 0.92 à 0.52.)</em></p>
+<p><strong>Correction incomplète (à noter).</strong> Après $\text{sum}\to\text{mean}$, $\mathcal{V}$ et
+$\mathcal{I}$ sont en $O(1)$, et $\mathcal{C}=\tfrac1d\sum_{j\neq k}\mathrm{Cov}^2$ retrouve la
+normalisation <strong>canonique</strong> de VICReg (c'est pour cela que $\gamma=1 \ll \alpha,\beta$). En
+revanche le terme croisé $\mathcal{X}$ a une normalisation <strong>ad hoc</strong>
+($\div \max(d_{sem},d_{speed})$ sur $d_{sem}\!\cdot\!d_{speed}$ entrées) et son poids
+$\lambda_x$ n'est <strong>jamais ablé</strong> — on ne sait donc pas s'il contribue un gradient réel
+(sous l'échantillonneur croisé programme×niveau, $\mathcal{X}\approx 0$ dès que l'invariance
+tient). De plus, décorrélation croisée nulle $\neq$ indépendance (2ᵉ ordre seulement).</p>
+<h2>5. Travaux liés (positionnement)</h2>
+<ul>
+<li><strong>Objectif.</strong> VICReg (Bardes, Ponce &amp; LeCun, 2022) ; terme croisé façon <strong>Barlow Twins</strong>
+  (Zbontar et al., 2021). Rien de nouveau côté perte.</li>
+<li><strong>Anti-effondrement principiel.</strong> <strong>LeJEPA + SIGReg</strong> (Balestriero &amp; LeCun, arXiv
+  2511.08544) — poussée <em>prouvable</em> et <em>invariante à la dimension</em> vers un embedding gaussien
+  isotrope. Le bug §4.3 est précisément la fragilité des coefficients réglés à la main que
+  SIGReg élimine par construction ; à comparer.</li>
+<li><strong>JEPA (à ne pas confondre).</strong> JEPA = <strong>prédiction latente</strong> (encodeur de contexte +
+  prédicteur, souvent cible EMA ; lignée BYOL → I-JEPA → V-JEPA). Voir <strong>C-JEPA</strong> (arXiv
+  2410.19560, hybride VICReg+JEPA contre l'effondrement), <strong>Graph-JEPA</strong> (arXiv 2309.16014,
+  JEPA sur graphes), <strong>LLM-JEPA</strong> (arXiv 2509.14252). Notre méthode n'en fait pas partie.</li>
+<li><strong>Représentation de code / compilateur.</strong> <strong>ProGraML</strong> (Cummins et al., arXiv 2003.10536,
+  la représentation utilisée ici), <strong>MLGO</strong> (Google), <strong>LLM Compiler</strong> (Meta),
+  <strong>CompilerGym</strong> — à citer comme baselines/positionnement.</li>
+<li><strong>Discrimination d'instance.</strong> InstDisc (Wu et al., 2018) — cadre de la métrique intra/inter.</li>
+</ul>
+<h2>6. Ce que la note prétend / ne prétend pas</h2>
+<ul>
+<li><strong>Prétend</strong> : (a) un résultat négatif honnête (gate ~1 bit, §4.1) qui borne toute tâche
+  d'optimisation en aval ; (b) une étude de cas reproductible d'un piège de normalisation
+  VICReg (§4.3) ; (c) une hygiène correcte (checkpoint publié, split anti-fuite, rang
+  effectif $\mathrm{erank}(Z)=\exp(H(\sigma/\lVert\sigma\rVert_1))$, 24 tests).</li>
+<li><strong>Ne prétend pas</strong> : aucune nouveauté méthodologique, aucune utilité downstream démontrée,
+  aucune supériorité sur une baseline. Les étiquettes « sémantique / vitesse / désentrelacement
+  sans labels » sont des raccourcis ; formulation exacte : <em>représentation invariante à deux
+  groupages supervisés connus (programme, niveau -O)</em>.</li>
+</ul>
+<h2>7. Plan d'expériences (réparateurs, faisables sur <code>checkpoints/encoder.pt</code>)</h2>
+<p><em>Tous réalisables en heures–jours dès que le GPU est de nouveau joignable.</em></p>
 <ol>
-<li><strong>Invariance partiellement tautologique.</strong> $\cos_{\text{intra}}(z_{sem})=0.995$ est en
-   partie « gratuit » : pour ~75–98 % des programmes, les graphes O1/O2/O3 sont
-   <em>identiques</em> (§4.1), donc 3 des 4 vues sont le même input. L'invariance réellement
-   apprise est O0↔optimisé. <strong>Faut-il ne mesurer les métriques que sur les paires de vues
-   à graphe distinct</strong> pour isoler la sémantique apprise du « gratuit » ?</li>
-<li><strong>$z_{speed}$ ~1-bit vs tête 32-D + VICReg.</strong> Le terme de variance force l'étalement sur
-   des dimensions sans signal d'optimisation (d'où la chute de l'écart 0.92→0.52 après
-   correction). Quel est le bon compromis rang ↔ compacité de cluster ? Réduire $d_{speed}$
-   et/ou fusionner {O2,O3} ($\pi=(0,1,1,1)$) est-il plus sain que de laisser la variance
-   « inventer » du signal ?</li>
-<li><strong>Est-ce du JEPA ?</strong> Pas de masquage, pas de prédicteur latent, pas de cible EMA : c'est
-   un apprentissage de représentation <strong>désentrelacée par invariance multi-vues (VICReg)</strong>
-   sur graphes IR. La nomenclature « JEPA » est-elle défendable, ou trompeuse ?</li>
-<li><strong>Sensibilité de VICReg au ratio invariance/régularisation.</strong> Le bug révèle une extrême
-   sensibilité au rapport $\alpha/(\beta,\gamma)$. Y a-t-il une paramétrisation <em>invariante à
-   la dimension</em> par construction (normaliser $\mathcal{I}$ par $d$, ou objectif type
-   Barlow-Twins) qui évite ce piège ?</li>
-<li><strong>Métriques de désentrelacement.</strong> Cosinus/silhouette/rang suffisent-ils, ou faut-il des
-   mesures dédiées (MIG, DCI, SAP) — sachant que nos « facteurs » (programme, niveau) sont
-   très déséquilibrés (1 bit vs des milliers de programmes) ?</li>
-<li><strong>Utilité downstream.</strong> Le désentrelacement n'a de valeur que s'il aide une tâche en aval
-   (transfert, sonde d'optimisation, guidage d'une réécriture). Non encore testé — quelle
-   serait l'expérience minimale la plus convaincante ?</li>
-</ol></article></body></html>
+<li><strong>Contrôles / baselines</strong> (rend toute métrique interprétable) :
+   encodeur <strong>random-init</strong> sur les mêmes métriques §4.2 ; baseline <strong>sac-d'opcodes /
+   nombre de nœuds</strong> ; VICReg <strong>non factorisé</strong> ; borne supérieure supervisée.</li>
+<li><strong>Métrique honnête</strong> : recalculer $\cos_{\text{intra}}(z_{sem})$ <strong>sur paires à graphe
+   distinct</strong> (O0↔optimisé) et la reporter comme chiffre principal, avec le plancher random-init.</li>
+<li><strong>Sondes linéaires gelées</strong> : prédire <code>-O</code> depuis $z_{speed}$, le programme / bucket
+   d'opcodes depuis $z_{sem}$, chacune contre la baseline graphe.</li>
+<li><strong>Une lecture pertinente compilateur</strong> : récupération plus-proche-voisin du sibling
+   optimisé d'un graphe O0 ; ou sonde type DevMap/ProGraML.</li>
+<li><strong>Rigueur</strong> : ≥5 graines (moyenne ± σ) sur le résultat 2.97→72.4 ; ablation
+   $\lambda_x=0$ ; balayage $(\alpha,\beta,\gamma)$/$\lambda_x$ ; check d'indépendance
+   non-linéaire (MI inter-blocs ou sonde prédisant un bloc depuis l'autre).</li>
+<li><strong>Comparaison de principe</strong> : LeJEPA/SIGReg vs la stabilisation VICReg réglée à la main.</li>
+</ol>
+<h2>Reproductibilité</h2>
+<p>Code + checkpoint (<code>checkpoints/encoder.pt</code> + <code>vocab.json</code>), 24 tests unitaires (dont des
+garde-fous de normalisation). Détails : <code>docs/results_gate_exebench.md</code>,
+<code>results_disentangle.md</code>, <code>loss_review.md</code>, revue adversariale <code>adversarial_research_review.md</code>.</p>
+<h2>Références (à compléter)</h2>
+<p>VICReg — Bardes, Ponce, LeCun (2022). · Barlow Twins — Zbontar et al. (2021). · ProGraML —
+Cummins et al. (arXiv 2003.10536). · R-GCN — Schlichtkrull et al. (2018). · LeJEPA/SIGReg —
+Balestriero &amp; LeCun (arXiv 2511.08544). · C-JEPA (2410.19560) · Graph-JEPA (2309.16014) ·
+LLM-JEPA (2509.14252) · InstDisc — Wu et al. (2018) · MLGO, LLM Compiler, CompilerGym.</p></article></body></html>
