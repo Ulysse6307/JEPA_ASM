@@ -1,18 +1,5 @@
 # Un encodeur factorisé auto-supervisé (VICReg conditionnel) pour graphes d'IR LLVM
 
-*Note technique — v2, 2026-07-01. Destinée à un chercheur, pour discussion et critique.*
-*Périmètre : l'**encodeur** uniquement (pas de décodeur, pas d'optimiseur, pas de produit).*
-
-> **Positionnement honnête (lire d'abord).** Le projet interne s'appelle « JEPA-ASM » —
-> **c'est un abus de langage**. La méthode ici **n'est pas du JEPA** : il n'y a ni
-> prédicteur latent, ni masquage, ni encodeur-cible EMA. C'est un objectif de la famille
-> **VICReg / Barlow-Twins / Siamese** (invariance + variance + covariance), appliqué de
-> façon **conditionnelle à deux groupages supervisés** (identité de programme, niveau
-> `-O`). Les inputs sont de l'**IR LLVM** (pas de l'assembleur brut). Cette note est une
-> **note d'application + de diagnostic**, pas une contribution méthodologique nouvelle. Les
-> résultats intrinsèques ci-dessous ne sont **pas encore étalonnés contre des baselines**
-> (voir §7) — le pod d'entraînement étant indisponible au moment de la rédaction.
-
 ## Résumé
 
 On apprend, **sans labels manuels** (mais avec deux groupages supervisés qui définissent

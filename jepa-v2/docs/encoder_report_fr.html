@@ -12,25 +12,11 @@ h3{font-size:14px;margin:1em 0 .4em;page-break-after:avoid}
 p,li{font-size:12.3px} em{color:#555}
 blockquote{background:#f7f7f9;border-left:3px solid #888;margin:.8em 0;padding:6px 12px;font-size:11.8px;color:#333}
 table{border-collapse:collapse;width:100%;margin:.6em 0;font-size:11.3px;page-break-inside:avoid}
-th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}
-th{background:#f3f3f3}
+th,td{border:1px solid #ccc;padding:5px 8px;text-align:left} th{background:#f3f3f3}
 img{max-width:90%;display:block;margin:14px auto;page-break-inside:avoid;border:1px solid #eee}
 code{background:#f4f4f4;padding:1px 4px;border-radius:3px;font-size:11px}
 mjx-container{overflow-x:auto;overflow-y:hidden}
 </style></head><body><article><h1>Un encodeur factorisé auto-supervisé (VICReg conditionnel) pour graphes d'IR LLVM</h1>
-<p><em>Note technique — v2, 2026-07-01. Destinée à un chercheur, pour discussion et critique.</em>
-<em>Périmètre : l'</em><em>encodeur</em><em> uniquement (pas de décodeur, pas d'optimiseur, pas de produit).</em></p>
-<blockquote>
-<p><strong>Positionnement honnête (lire d'abord).</strong> Le projet interne s'appelle « JEPA-ASM » —
-<strong>c'est un abus de langage</strong>. La méthode ici <strong>n'est pas du JEPA</strong> : il n'y a ni
-prédicteur latent, ni masquage, ni encodeur-cible EMA. C'est un objectif de la famille
-<strong>VICReg / Barlow-Twins / Siamese</strong> (invariance + variance + covariance), appliqué de
-façon <strong>conditionnelle à deux groupages supervisés</strong> (identité de programme, niveau
-<code>-O</code>). Les inputs sont de l'<strong>IR LLVM</strong> (pas de l'assembleur brut). Cette note est une
-<strong>note d'application + de diagnostic</strong>, pas une contribution méthodologique nouvelle. Les
-résultats intrinsèques ci-dessous ne sont <strong>pas encore étalonnés contre des baselines</strong>
-(voir §7) — le pod d'entraînement étant indisponible au moment de la rédaction.</p>
-</blockquote>
 <h2>Résumé</h2>
 <p>On apprend, <strong>sans labels manuels</strong> (mais avec deux groupages supervisés qui définissent
 les positifs), un encodeur de programmes $f_\theta$ sur des graphes <strong>ProGraML</strong> (Cummins
